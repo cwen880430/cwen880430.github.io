@@ -1,17 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hello World</title>
-</head>
-<body>
-    <a href="https://https://www.google.com/">Google</a>
-    <a href="https://tw.yahoo.com/">Yahoo</a>
-    <a href="https://m.happymh.com/">HappyMH</a>
-    <a href="https://uukanshu.cc/book/10500/">武神主宰</a>
-    <a href="https://www.drxsw.com/zh_hant/book/1149842/">上門龍婿</a>
-    <a href="https://www.ttkan.co/novel/chapters/wanxiangzhiwang-tiancantudou">萬相之王</a>
-    <a href="https://www.novel543.com/0220300205">師尊：這個沖師逆徒才不是聖子</a>
-</body>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Hello World</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+        <style>
+            :root{
+                --bg1: #0f172a;
+                --bg2: #0b1220;
+                --card: rgba(255,255,255,0.06);
+                --accent: #7c3aed; /* violet */
+                --muted: rgba(255,255,255,0.7);
+            }
+            html,body{height:100%;}
+            body{
+                margin:0;
+                font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+                background: linear-gradient(180deg,var(--bg1),var(--bg2));
+                color: #e6eef8;
+                -webkit-font-smoothing:antialiased;
+                -moz-osx-font-smoothing:grayscale;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:32px;
+            }
+            .container{
+                width:100%;
+                max-width:880px;
+                background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+                border-radius:12px;
+                box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+                padding:28px;
+                backdrop-filter: blur(6px);
+            }
+            header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+            .logo{
+                width:56px;height:56px;border-radius:10px;
+                background:linear-gradient(135deg,var(--accent),#4f46e5);
+                display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:18px;
+                box-shadow: 0 6px 18px rgba(124,58,237,0.18);
+            }
+            h1{font-size:20px;margin:0}
+            p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+            .links{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:18px}
+            .card{
+                background:var(--card);
+                padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);
+                transition:transform .14s ease, box-shadow .14s ease;overflow:hidden;
+            }
+            .card a{color:#fff;text-decoration:none;font-weight:600;display:block}
+            .card small{display:block;color:var(--muted);margin-top:6px;font-weight:400}
+            .card:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(2,6,23,0.6)}
+            footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:right}
+
+            /* responsive tweaks */
+            @media (max-width:420px){
+                .container{padding:18px}
+                .logo{width:48px;height:48px;font-size:16px}
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container" role="main">
+            <header>
+                <div class="logo">HW</div>
+                <div>
+                    <h1>Hello world</h1>
+                    <p class="lead">A small collection of links — styled for clarity and responsiveness.</p>
+                </div>
+            </header>
+
+            <section class="links" aria-label="links list">
+                <article class="card"><a href="https://https://www.google.com/">Google</a><small>Search engine</small></article>
+                <article class="card"><a href="https://tw.yahoo.com/">Yahoo</a><small>Portal & news</small></article>
+                <article class="card"><a href="https://m.happymh.com/">HappyMH</a><small>Online manga source</small></article>
+                <article class="card"><a href="https://uukanshu.cc/book/10500/">武神主宰</a><small>Novel: Wu Shen Zhuzai</small></article>
+                <article class="card"><a href="https://www.drxsw.com/zh_hant/book/1149842/">上門龍婿</a><small>Novel: Shang Men Long Xu</small></article>
+                <article class="card"><a href="https://www.ttkan.co/novel/chapters/wanxiangzhiwang-tiancantudou">萬相之王</a><small>Novel: Wan Xiang Zhi Wang</small></article>
+                <article class="card"><a href="https://www.novel543.com/0220300205">師尊：這個沖師逆徒才不是聖子</a><small>Novel listing</small></article>
+            </section>
+
+            <footer>Made with ♥ — simple static page</footer>
+        </div>
+    </body>
 </html>
