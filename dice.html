@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Random Number Generator</title>
+  <style>
+    :root{--bg1:#081226;--bg2:#051423;--card:rgba(255,255,255,0.04);--accent:#06b6d4;--muted:rgba(255,255,255,0.7)}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#eaf6fb}
+    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--bg1),var(--bg2));padding:28px}
+    .card{width:100%;max-width:720px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:28px;border-radius:12px;box-shadow:0 12px 40px rgba(2,6,23,0.6)}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 20px;color:var(--muted);font-size:13px}
+
+    .display{font-weight:700;font-size:48px;letter-spacing:6px;background:linear-gradient(90deg,#7dd3fc,#60a5fa);-webkit-background-clip:text;background-clip:text;color:transparent;text-align:center;padding:28px 0}
+
+    .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center}
+    button{background:linear-gradient(180deg,var(--accent),#4f46e5);border:0;color:white;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px rgba(79,70,229,0.14)}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
+    button:disabled{opacity:.5;cursor:not-allowed}
+
+    .meta{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+
+    /* small rolling digit animation helper */
+    .rolling{animation:pop .12s linear;}
+    @keyframes pop{from{transform:translateY(-8px);opacity:.4}to{transform:none;opacity:1}}
+
+    .settings{display:flex;gap:8px;justify-content:center;margin-top:12px}
+    input[type=text]{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);padding:8px;border-radius:8px;width:260px}
+
+    .status{margin-top:12px;text-align:center;font-size:13px}
+
+    /* simple confetti (dots) */
+    .confetti{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}
+    .center{display:flex;flex-direction:column;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="card" role="main">
+    <div class="center">
+      <h1>Random 8-digit Number</h1>
+      <p class="lead">Generate a random number (0–99,999,999), watch it roll, then send it to your server (one push only).</p>
+
+      <div id="display" class="display" aria-live="polite">— — — — — — — —</div>
+
+      <div class="controls" role="group" aria-label="controls">
+        <button id="generateBtn" aria-controls="display">Generate</button>
+        <button id="sendBtn" class="secondary" disabled>Send to server</button>
+      </div>
+
+      <div class="settings">
+        <label for="endpoint" style="display:none">Endpoint</label>
+        <input id="endpoint" type="text" value="/api/submit-number" aria-label="server endpoint">
+      </div>
+
+      <div class="status" id="status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <script>
+    // Raptor mini (Preview) — page script
+    (function(){
+      const display = document.getElementById('display');
+      const genBtn = document.getElementById('generateBtn');
+      const sendBtn = document.getElementById('sendBtn');
+      const status = document.getElementById('status');
+      const endpointInput = document.getElementById('endpoint');
+
+      let currentNumber = null;
+      let sendingDisabled = false; // enforce one push only
+      let rolling = null;
+
+      function formatNumber(n){
+        // show up to 8 digits, no commas
+        return String(n);
+      }
+
+      function randomInt(){
+        // 0 .. 99,999,999
+        return Math.floor(Math.random() * 100_000_000);
+      }
+
+      function startRolling(durationMs = 1400, onComplete){
+        if(rolling) return;
+        genBtn.disabled = true;
+        sendBtn.disabled = true;
+        status.textContent = 'Rolling…';
+        const start = Date.now();
+        rolling = setInterval(()=>{
+          const temp = randomInt();
+          display.textContent = formatNumber(temp).padStart(1, '0');
+          display.classList.add('rolling');
+          setTimeout(()=>display.classList.remove('rolling'),80);
+          if(Date.now() - start > durationMs){
+            clearInterval(rolling);
+            rolling = null;
+            // final number
+            currentNumber = randomInt();
+            display.textContent = formatNumber(currentNumber);
+            // small celebration
+            celebrate();
+            // If an onComplete callback is provided, call it and wait for it to finish
+            if(typeof onComplete === 'function'){
+              // keep UI disabled while sending
+              endpointInput.disabled = true;
+              sendBtn.disabled = true;
+              genBtn.disabled = true;
+              Promise.resolve(onComplete(currentNumber)).then(()=>{
+                status.innerHTML = 'Done ✅';
+                sendBtn.textContent = 'Sent';
+                sendBtn.disabled = true;
+                genBtn.disabled = true;
+              }).catch(()=>{
+                // sendNumber will have written status; still mark done
+                status.innerHTML = (status.innerHTML || '') + ' — Done.';
+                sendBtn.textContent = 'Sent';
+                sendBtn.disabled = true;
+                genBtn.disabled = true;
+              });
+            }else{
+              status.textContent = 'Ready to send.';
+              sendBtn.disabled = sendingDisabled || false;
+              genBtn.disabled = false;
+            }
+          }
+        }, 80);
+      }
+
+      function celebrate(){
+        // tiny confetti dots (pure DOM, short-lived)
+        const frag = document.createDocumentFragment();
+        for(let i=0;i<18;i++){
+          const d = document.createElement('div');
+          d.style.position='absolute';
+          d.style.left=(50 + (Math.random()-0.5)*60)+'%';
+          d.style.top=(50 + (Math.random()-0.5)*8)+'%';
+          const size = 6 + Math.random()*10;
+          d.style.width = d.style.height = size+'px';
+          d.style.background = ['#60a5fa','#7dd3fc','#34d399','#fca5a5'][Math.floor(Math.random()*4)];
+          d.style.borderRadius='50%';
+          d.style.opacity='0.95';
+          d.style.transform = 'translateY(0)';
+          d.style.transition = 'transform 900ms cubic-bezier(.18,.78,.6,1), opacity 900ms ease';
+          document.body.appendChild(d);
+          requestAnimationFrame(()=>{
+            d.style.transform = 'translateY('+ (200+Math.random()*220) +'px) translateX('+ ((Math.random()-0.5)*300) +'px) rotate('+ (Math.random()*360) +'deg)';
+            d.style.opacity='0';
+          });
+          setTimeout(()=>d.remove(),1100);
+        }
+      }
+
+      // helper to send number to server
+      async function sendNumber(number){
+        const url = (endpointInput.value || '').trim();
+        if(!url){ status.textContent = 'No server endpoint set. Action done.'; return; }
+        status.textContent = 'Sending…';
+        try{
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ number })
+          });
+          if(res.ok){
+            status.innerHTML = 'Sent successfully ✅';
+          }else{
+            const text = await res.text().catch(()=>res.statusText);
+            status.innerHTML = 'Server error: '+res.status+' '+text;
+          }
+        }catch(err){
+          status.innerHTML = 'Network error: '+ (err && err.message ? err.message : String(err));
+        }
+      }
+
+      genBtn.addEventListener('click', ()=>{
+        if(sendingDisabled) return; // only once
+        sendingDisabled = true; // mark as used
+        genBtn.disabled = true;
+        sendBtn.disabled = true;
+        endpointInput.disabled = true;
+        // start rolling and auto-send when finished
+        startRolling(1400, async (finalNumber)=>{
+          await sendNumber(finalNumber);
+        });
+      });
+
+      sendBtn.addEventListener('click', async ()=>{
+        // Manual send is a fallback; if action already taken, show message
+        if(sendingDisabled){ status.textContent = 'Action already performed.'; return; }
+        if(currentNumber === null){ status.textContent = 'Generate a number first.'; return; }
+        sendingDisabled = true;
+        sendBtn.disabled = true;
+        genBtn.disabled = true;
+        endpointInput.disabled = true;
+        await sendNumber(currentNumber);
+        status.innerHTML = (status.innerHTML || '') + ' — Done.';
+      });
+
+      // Show placeholder on load
+      display.textContent = '— — — — — — — —';
+    })();
+  </script>
+</body>
+</html>
