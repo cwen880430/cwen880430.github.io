@@ -114,7 +114,7 @@
           }).filter(p => (p.lastname || p.firstname || p.chinese || p.email));
 
           if(people.length===0){ tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No rows found in Tennis.csv</td></tr>'; }
-          else renderTable(people.map((p,i)=>({id:i+1, ...p})), false);
+          else renderTable(people.map((p)=>({ ...p })), false);
           countSpan.textContent = people.length;
           status.textContent = 'Rows: ' + people.length;
         }catch(err){
@@ -127,7 +127,7 @@
         if(!list || list.length===0){ tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No data</td></tr>'; return; }
         list.forEach(item => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${item.id}</td><td>${escapeHtml(item.lastname)}</td><td>${escapeHtml(item.firstname)}</td><td>${escapeHtml(item.chinese)}</td><td>${escapeHtml(item.email)}</td>`;
+          tr.innerHTML = `<td>${item.id !== undefined ? item.id : ''}</td><td>${escapeHtml(item.lastname)}</td><td>${escapeHtml(item.firstname)}</td><td>${escapeHtml(item.chinese)}</td><td>${escapeHtml(item.email)}</td>`;
           tbody.appendChild(tr);
         });
       }
