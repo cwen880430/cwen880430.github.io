@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Randomized List — Tennis</title>
+  <style>
+    :root{--bg:#071226;--card:#071a2b;--accent:#06b6d4;--muted:#9fb6c3}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#eaf6fb;background:linear-gradient(180deg,var(--bg),#042033);}
+    .wrap{max-width:980px;margin:36px auto;padding:22px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;box-shadow:0 12px 40px rgba(2,6,23,0.6)}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:4px 0 18px;color:var(--muted);font-size:13px}
+
+    .controls{display:flex;gap:10px;flex-wrap:wrap}
+    button{background:linear-gradient(180deg,var(--accent),#4f46e5);border:0;color:white;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    button:disabled{opacity:.5;cursor:not-allowed}
+
+    .table-wrap{margin-top:18px;overflow:auto;border-radius:8px;border:1px solid rgba(255,255,255,0.03)}
+    table{width:100%;border-collapse:collapse}
+    thead{background:rgba(255,255,255,0.02)}
+    th,td{padding:10px 12px;text-align:left;font-size:13px;border-bottom:1px dashed rgba(255,255,255,0.02)}
+    tr.row-anim{opacity:0;transform:translateY(6px);transition:all .36s cubic-bezier(.2,.8,.2,1)}
+    tr.row-anim.visible{opacity:1;transform:none}
+
+    .status{margin-top:14px;color:var(--muted);font-size:13px}
+    .download{display:inline-block;margin-left:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Randomized List — Tennis</h1>
+        <p class="lead">Reads <code>Tennis.csv</code> and displays people as (Lastname, Firstname, Chinese, Email). Use <strong>Test Shuffle</strong> to try unlimited times; <strong>Final Shuffle</strong> locks the result and provides a CSV download.</p>
+      </div>
+      <div class="controls" aria-hidden="false">
+        <button id="testBtn" class="secondary">Test Shuffle</button>
+        <button id="finalBtn">Final Shuffle</button>
+        <button id="downloadBtn" class="secondary" style="display:none">Download CSV</button>
+      </div>
+    </header>
+
+    <div class="table-wrap" role="table" aria-label="people table">
+      <table id="peopleTable">
+        <thead>
+          <tr><th style="width:60px">ID</th><th>Lastname</th><th>Firstname</th><th>Chinese</th><th>Email</th></tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:26px" id="loading">Loading <code>Tennis.csv</code>…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="status" id="status">Rows: <span id="count">0</span></div>
+  </div>
+
+  <script>
+    (function(){
+      const testBtn = document.getElementById('testBtn');
+      const finalBtn = document.getElementById('finalBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const tbody = document.getElementById('tbody');
+      const status = document.getElementById('status');
+      const countSpan = document.getElementById('count');
+      const loadingRow = document.getElementById('loading');
+
+      let people = []; // {lastname, firstname, chinese, email}
+      let finalResult = null; // final ordered list when final clicked
+      let animating = false;
+      let finalized = false;
+
+      // CSV parser that handles quoted fields
+      function parseCSV(text){
+        const rows = [];
+        let cur = [], curField = '', inQuotes = false;
+        for(let i=0;i<text.length;i++){
+          const ch = text[i];
+          if(inQuotes){
+            if(ch === '"'){
+              if(text[i+1] === '"'){ curField += '"'; i++; } else { inQuotes = false; }
+            } else {
+              curField += ch;
+            }
+          } else {
+            if(ch === '"'){ inQuotes = true; }
+            else if(ch === ','){ cur.push(curField); curField=''; }
+            else if(ch === '\r') continue;
+            else if(ch === '\n'){ cur.push(curField); rows.push(cur); cur = []; curField = ''; }
+            else { curField += ch; }
+          }
+        }
+        // push last field
+        if(curField !== '' || inQuotes || cur.length>0){ cur.push(curField); rows.push(cur); }
+        return rows;
+      }
+
+      async function loadCSV(){
+        try{
+          const res = await fetch('Tennis.csv');
+          if(!res.ok) throw new Error('Failed to load Tennis.csv');
+          const text = await res.text();
+          const rows = parseCSV(text);
+          // Filter out empty lines and map columns (3, 4, 2, 1) -> 0-based [2,3,1,0]
+          people = rows.map(r => {
+            // ensure we have at least 4 columns
+            return {
+              lastname: (r[2] || '').trim(),
+              firstname: (r[3] || '').trim(),
+              chinese: (r[1] || '').trim(),
+              email: (r[0] || '').trim()
+            };
+          }).filter(p => (p.lastname || p.firstname || p.chinese || p.email));
+
+          if(people.length===0){ tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No rows found in Tennis.csv</td></tr>'; }
+          else renderTable(people.map((p)=>({ ...p })), false);
+          countSpan.textContent = people.length;
+          status.textContent = 'Rows: ' + people.length;
+        }catch(err){
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Error loading CSV: '+String(err)+'</td></tr>';
+        }
+      }
+
+      function renderTable(list, clear){
+        tbody.innerHTML = '';
+        if(!list || list.length===0){ tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No data</td></tr>'; return; }
+        list.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${item.id !== undefined ? item.id : ''}</td><td>${escapeHtml(item.lastname)}</td><td>${escapeHtml(item.firstname)}</td><td>${escapeHtml(item.chinese)}</td><td>${escapeHtml(item.email)}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function escapeHtml(s){
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      function pickRandomOrder(src){
+        // pick one by one randomly to form a new array
+        const pool = src.slice();
+        const out = [];
+        while(pool.length){
+          const idx = Math.floor(Math.random()*pool.length);
+          out.push(pool.splice(idx,1)[0]);
+        }
+        return out;
+      }
+
+      function animateAssignment(order, onDone){
+        // animate only the first 20 rows one-by-one; append the rest immediately
+        animating = true;
+        tbody.innerHTML = '';
+
+        // Bring the container into view at the start
+        const wrap = document.querySelector('.wrap');
+        if(wrap && typeof wrap.scrollIntoView === 'function'){
+          try{ wrap.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){}
+        } else {
+          if(window.scrollY > 0) window.scrollTo({top:0, behavior:'smooth'});
+        }
+
+        const total = order.length;
+        const animateLimit = Math.min(20, total);
+        let i = 0;
+        function step(){
+          if(i < animateLimit){
+            const person = order[i];
+            const tr = document.createElement('tr');
+            tr.className = 'row-anim';
+            tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(person.lastname)}</td><td>${escapeHtml(person.firstname)}</td><td>${escapeHtml(person.chinese)}</td><td>${escapeHtml(person.email)}</td>`;
+            tbody.appendChild(tr);
+            // force reflow to allow transition and scroll the newest row into view in the table
+            requestAnimationFrame(()=>{ tr.classList.add('visible'); try{ tr.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(e){} });
+            i++;
+            setTimeout(step, 90 + Math.random()*60); // small random delay to feel organic
+          } else {
+            // append the remaining rows without animation
+            for(let k = i; k < total; k++){
+              const person = order[k];
+              const tr = document.createElement('tr');
+              tr.innerHTML = `<td>${k+1}</td><td>${escapeHtml(person.lastname)}</td><td>${escapeHtml(person.firstname)}</td><td>${escapeHtml(person.chinese)}</td><td>${escapeHtml(person.email)}</td>`;
+              tbody.appendChild(tr);
+            }
+            // ensure the last row is visible
+            const last = tbody.lastElementChild;
+            if(last){ try{ last.scrollIntoView({behavior:'smooth', block:'end'}); }catch(e){} }
+            animating = false;
+            if(typeof onDone === 'function') onDone();
+            return;
+          }
+        }
+        step();
+      }
+
+      function enableButtons(){ if(!finalized){ testBtn.disabled = false; finalBtn.disabled = false; } }
+      function disableButtons(){ testBtn.disabled = true; finalBtn.disabled = true; }
+
+      // Test Shuffle: unlimited times
+      testBtn.addEventListener('click', ()=>{
+        if(animating || finalized) return;
+        disableButtons();
+        status.textContent = 'Testing shuffle…';
+        const order = pickRandomOrder(people);
+        animateAssignment(order, ()=>{ status.textContent = 'Test shuffle finished.'; enableButtons(); });
+      });
+
+      // Final Shuffle: single-use; runs animation then saves to server (locks on success)
+      finalBtn.addEventListener('click', ()=>{
+        if(animating || finalized) return;
+        // disable UI while finalizing; we'll set `finalized = true` only after successful save
+        disableButtons();
+        status.textContent = 'Finalizing…';
+        const order = pickRandomOrder(people);
+        finalResult = order.map((p,i)=>({ id: i+1, ...p }));
+        animateAssignment(finalResult, async ()=>{
+          status.textContent = 'Saving final result to server…';
+          const res = await saveFinalToServer(finalResult);
+          if(res.ok){
+            finalized = true;
+            status.textContent = 'Final order saved on server.';
+            downloadBtn.style.display = 'inline-block';
+          } else if(res.conflict){
+            status.textContent = 'Final result already exists on server — loading it.';
+            await fetchServerFinal();
+          } else {
+            status.textContent = 'Save failed: '+(res.error||'unknown')+'. You can retry.';
+            // allow retry
+            enableButtons();
+          }
+        });
+      });
+
+      downloadBtn.addEventListener('click', ()=>{
+        if(!finalResult) return;
+        // create CSV: ID,Lastname,Firstname,Chinese,Email
+        const header = ['ID','Lastname','Firstname','Chinese','Email'];
+        const rows = [header.join(',')];
+        finalResult.forEach(r => {
+          const fields = [String(r.id), r.lastname, r.firstname, r.chinese, r.email];
+          rows.push(fields.map(csvEscape).join(','));
+        });
+        const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'Tennis_shuffled.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        status.textContent = 'Download started.';
+      });
+
+      function csvEscape(s){ s = String(s||''); if(s.includes('"')||s.includes(',')||s.includes('\n')) return '"'+s.replace(/"/g,'""')+'"'; return s; }
+
+      // Server integration: fetch existing final result (if any), save final result
+      async function fetchServerFinal(){
+        try{
+          const r = await fetch('./final-result.php');
+          if(r.status === 404) return null;
+          if(!r.ok) { console.error('fetch final failed', r.status); return null; }
+          const data = await r.json();
+          if(data && data.payload){
+            finalResult = data.payload;
+            renderTable(finalResult.map((p,i)=>({id:i+1,...p})), false);
+            finalized = true;
+            disableButtons();
+            downloadBtn.style.display = 'inline-block';
+            status.textContent = 'Final result loaded from server.';
+            return data;
+          }
+        }catch(err){ console.error(err); }
+        return null;
+      }
+
+      async function saveFinalToServer(payload){
+        try{
+          const r = await fetch('./final-result.php', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+          });
+          if(r.ok) return {ok:true};
+          if(r.status === 409) return {conflict:true};
+          const text = await r.text().catch(()=>r.statusText);
+          return {error: text || r.status};
+        }catch(e){ return {error: e && e.message ? e.message : String(e)}; }
+      }
+
+      // initial load
+      loadCSV().then(()=>{ fetchServerFinal(); });
+
+    })();
+  </script>
+</body>
+</html>
